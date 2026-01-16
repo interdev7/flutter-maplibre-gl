@@ -49,7 +49,8 @@ class MapLibreMapController extends MapLibrePlatform
         ..style.top = '0'
         ..style.bottom = '0'
         ..style.height = '100%'
-        ..style.width = '100%';
+        ..style.width = '100%'
+        ..style.pointerEvents = 'none'; // Allow pointer events to pass through to Flutter widgets above
       callback(viewId);
       return _mapElement;
     });
@@ -76,6 +77,11 @@ class MapLibreMapController extends MapLibrePlatform
         attributionControl: false, //avoid duplicate control
       ),
     );
+    
+    // Enable pointer events on the canvas to allow map interaction
+    // while keeping the container pointer-events: none to prevent click-through
+    _map.getCanvas().style.pointerEvents = 'auto';
+    
     _map.on('style.load', _onStyleLoaded);
     _map.on('click', _onMapClick);
     // long click not available in web, so it is mapped to double click
