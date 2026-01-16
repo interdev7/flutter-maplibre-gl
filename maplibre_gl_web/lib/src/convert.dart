@@ -1,8 +1,15 @@
 part of '../maplibre_gl_web.dart';
 
 class Convert {
+  /// Interprets the map options and applies them to the sink.
+  ///
+  /// [ignoreStyle] if true, will not apply styleString changes.
+  /// This is useful when the style is handled separately (like MapLibreMap initialization).
   static void interpretMapLibreMapOptions(
-      Map<String, dynamic> options, MapLibreMapOptionsSink sink) {
+    Map<String, dynamic> options,
+    MapLibreMapOptionsSink sink, {
+    bool ignoreStyle = false,
+  }) {
     if (options.containsKey('cameraTargetBounds')) {
       final bounds = options['cameraTargetBounds'][0];
       if (bounds == null) {
@@ -19,8 +26,11 @@ class Convert {
     if (options.containsKey('compassEnabled')) {
       sink.setCompassEnabled(options['compassEnabled']);
     }
-    if (options.containsKey('styleString')) {
-      sink.setStyleString(options['styleString']);
+    if (options.containsKey('styleString') && !ignoreStyle) {
+      final styleString = options['styleString'];
+      if (styleString == null) return;
+
+      sink.setStyle(styleString);
     }
     if (options.containsKey('minMaxZoomPreference')) {
       sink.setMinMaxZoomPreference(options['minMaxZoomPreference'][0],
@@ -53,6 +63,10 @@ class Convert {
     if (options.containsKey('myLocationRenderMode')) {
       sink.setMyLocationRenderMode(options['myLocationRenderMode']);
     }
+    if (options.containsKey('logoViewPosition')) {
+      final position = LogoViewPosition.values[options['logoViewPosition']];
+      sink.setLogoViewAlignment(position);
+    }
     if (options.containsKey('logoViewMargins')) {
       sink.setLogoViewMargins(
           options['logoViewMargins'][0], options['logoViewMargins'][1]);
@@ -77,12 +91,24 @@ class Convert {
       sink.setAttributionButtonMargins(options['attributionButtonMargins'][0],
           options['attributionButtonMargins'][1]);
     }
+    if (options.containsKey('scaleControlEnabled')) {
+      sink.setScaleControlEnabled(options['scaleControlEnabled']);
+    }
+    if (options.containsKey('scaleControlPosition')) {
+      final position =
+          ScaleControlPosition.values[options['scaleControlPosition']];
+      sink.setScaleControlPosition(position);
+    }
+    if (options.containsKey('scaleControlUnit')) {
+      final unit = ScaleControlUnit.values[options['scaleControlUnit']];
+      sink.setScaleControlUnit(unit);
+    }
   }
 
   static CameraOptions toCameraOptions(
       CameraUpdate cameraUpdate, MapLibreMap mapLibreMap) {
     final List<dynamic> json = cameraUpdate.toJson();
-    final type = json[0];
+    final type = json[0] as String;
     switch (type) {
       case 'newCameraPosition':
         final camera = json[1];

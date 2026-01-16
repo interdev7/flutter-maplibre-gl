@@ -17,30 +17,26 @@ import android.location.Location;
 import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.Pair;
+import android.content.ComponentCallbacks2;
+import android.content.res.Configuration;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.FrameLayout;
-import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
-import org.maplibre.android.gestures.AndroidGesturesManager;
-import org.maplibre.android.gestures.MoveGestureDetector;
-import org.maplibre.android.location.engine.LocationEngine;
-import org.maplibre.android.location.engine.LocationEngineDefault;
-import org.maplibre.android.location.engine.LocationEngineProxy;
-import org.maplibre.android.location.engine.LocationEngineRequest;
-import org.maplibre.geojson.Feature;
-import org.maplibre.geojson.FeatureCollection;
+import org.jetbrains.annotations.NotNull;
 import org.maplibre.android.camera.CameraPosition;
 import org.maplibre.android.camera.CameraUpdate;
 import org.maplibre.android.camera.CameraUpdateFactory;
@@ -49,17 +45,20 @@ import org.maplibre.android.geometry.LatLng;
 import org.maplibre.android.geometry.LatLngBounds;
 import org.maplibre.android.geometry.LatLngQuad;
 import org.maplibre.android.geometry.VisibleRegion;
+import org.maplibre.android.gestures.AndroidGesturesManager;
+import org.maplibre.android.gestures.MoveGestureDetector;
 import org.maplibre.android.location.LocationComponent;
 import org.maplibre.android.location.LocationComponentActivationOptions;
 import org.maplibre.android.location.LocationComponentOptions;
 import org.maplibre.android.location.OnCameraTrackingChangedListener;
 import org.maplibre.android.location.engine.LocationEngineCallback;
+import org.maplibre.android.location.engine.LocationEngineRequest;
 import org.maplibre.android.location.engine.LocationEngineResult;
 import org.maplibre.android.location.modes.CameraMode;
 import org.maplibre.android.location.modes.RenderMode;
-import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.MapLibreMap;
 import org.maplibre.android.maps.MapLibreMapOptions;
+import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.OnMapReadyCallback;
 import org.maplibre.android.maps.Style;
 import org.maplibre.android.offline.OfflineManager;
@@ -72,20 +71,20 @@ import org.maplibre.android.style.layers.HillshadeLayer;
 import org.maplibre.android.style.layers.Layer;
 import org.maplibre.android.style.layers.LineLayer;
 import org.maplibre.android.style.layers.Property;
+import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.layers.PropertyValue;
 import org.maplibre.android.style.layers.RasterLayer;
 import org.maplibre.android.style.layers.SymbolLayer;
-import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.sources.CustomGeometrySource;
+import org.maplibre.android.style.sources.GeoJsonOptions;
 import org.maplibre.android.style.sources.GeoJsonSource;
 import org.maplibre.android.style.sources.ImageSource;
 import org.maplibre.android.style.sources.Source;
 import org.maplibre.android.style.sources.VectorSource;
+import org.maplibre.geojson.Feature;
+import org.maplibre.geojson.FeatureCollection;
+import org.maplibre.android.net.ConnectivityReceiver;
 
-import io.flutter.plugin.common.BinaryMessenger;
-import io.flutter.plugin.common.MethodCall;
-import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.platform.PlatformView;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -98,11 +97,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import io.flutter.plugin.common.BinaryMessenger;
+import io.flutter.plugin.common.MethodCall;
+import io.flutter.plugin.common.MethodChannel;
+import io.flutter.plugin.platform.PlatformView;
+
 
 /** Controller of a single MapLibreMaps MapView instance. */
 @SuppressLint("MissingPermission")
 final class MapLibreMapController
     implements DefaultLifecycleObserver,
+        ComponentCallbacks2,
         MapLibreMap.OnCameraIdleListener,
         MapLibreMap.OnCameraMoveListener,
         MapLibreMap.OnCameraMoveStartedListener,
@@ -132,8 +137,10 @@ final class MapLibreMapController
   private boolean myLocationEnabled = false;
   private int myLocationTrackingMode = 0;
   private int myLocationRenderMode = 0;
+  private LocationEngineFactory myLocationEngineFactory = new LocationEngineFactory();
   private boolean disposed = false;
   private boolean dragEnabled = true;
+  private boolean mapViewStarted = false;
   private MethodChannel.Result mapReadyResult;
   private LocationComponent locationComponent = null;
   private LocationEngineCallback<LocationEngineResult> locationEngineCallback = null;
@@ -163,7 +170,7 @@ final class MapLibreMapController
           updateMyLocationEnabled();
 
           if (null != bounds) {
-            mapLibreMap.setLatLngBoundsForCameraTarget(bounds);
+            setCameraTargetBounds(bounds);
           }
 
           mapLibreMap.addOnMapClickListener(MapLibreMapController.this);
@@ -208,6 +215,7 @@ final class MapLibreMapController
 
   void init() {
     lifecycleProvider.getLifecycle().addObserver(this);
+    context.registerComponentCallbacks(this);
     mapView.getMapAsync(this);
   }
 
@@ -233,6 +241,11 @@ final class MapLibreMapController
     mapLibreMap.addOnCameraMoveStartedListener(this);
     mapLibreMap.addOnCameraMoveListener(this);
     mapLibreMap.addOnCameraIdleListener(this);
+
+    // Apply camera target bounds if set during initialization
+    if (bounds != null) {
+      mapLibreMap.setLatLngBoundsForCameraTarget(bounds);
+    }
 
     if (androidGesturesManager != null) {
       androidGesturesManager.setMoveGestureListener(new MoveGestureListener());
@@ -267,6 +280,13 @@ final class MapLibreMapController
     clearLocationComponentLayer();
     styleString = styleString.trim();
 
+    // Prevent race conditions: invalidate current style reference & interactive layers
+    // Old Style instances become invalid immediately after setStyle is called.
+    this.style = null;
+    if (interactiveFeatureLayerIds != null) {
+      interactiveFeatureLayerIds.clear();
+    }
+
     // Check if json, url, absolute path or asset path:
     if (styleString == null || styleString.isEmpty()) {
       Log.e(TAG, "setStyleString - string empty or null");
@@ -299,6 +319,7 @@ final class MapLibreMapController
               LocationComponentActivationOptions
                       .builder(context, style)
                       .locationComponentOptions(buildLocationComponentOptions(style))
+                      .locationEngine(myLocationEngineFactory.getLocationEngine(context))
                       .build();
 
       locationComponent.activateLocationComponent(options);
@@ -325,13 +346,17 @@ final class MapLibreMapController
   }
 
   String getLastLayerOnStyle(Style style) {
-    if (style != null) {
-      final List<Layer> layers = style.getLayers();
-
-      if (layers.size() > 0) {
-        return layers.get(layers.size() - 1).getId();
-      }
+    if (style == null) return null;
+    if (!style.isFullyLoaded()) {
+        Log.d(TAG, "getLastLayerOnStyle: style not fully loaded yet");
+        return null;
     }
+    
+    final List<Layer> layers = style.getLayers();
+    if (layers.size() > 0) {
+      return layers.get(layers.size() - 1).getId();
+    }
+
     return null;
   }
 
@@ -381,13 +406,21 @@ final class MapLibreMapController
 
   private void addGeoJsonSource(String sourceName, String source) {
     FeatureCollection featureCollection = FeatureCollection.fromJson(source);
-    GeoJsonSource geoJsonSource = new GeoJsonSource(sourceName, featureCollection);
+
+    // Enable synchronous updates to reduce flicker during animations/dragging if dragEnabled option is true
+    GeoJsonOptions options = new GeoJsonOptions().withSynchronousUpdate(dragEnabled);
+    GeoJsonSource geoJsonSource = new GeoJsonSource(sourceName, featureCollection, options);
     addedFeaturesByLayer.put(sourceName, featureCollection);
 
     style.addSource(geoJsonSource);
   }
 
   private void setGeoJsonSource(String sourceName, String geojson) {
+    if (style == null || !style.isFullyLoaded()) {
+      Log.w(TAG, "setGeoJsonSource: style not ready, skipping update");
+      return;
+    }
+    
     FeatureCollection featureCollection = FeatureCollection.fromJson(geojson);
     GeoJsonSource geoJsonSource = style.getSourceAs(sourceName);
     addedFeaturesByLayer.put(sourceName, featureCollection);
@@ -396,6 +429,11 @@ final class MapLibreMapController
   }
 
   private void setGeoJsonFeature(String sourceName, String geojsonFeature) {
+    if (style == null || !style.isFullyLoaded()) {
+      Log.w(TAG, "setGeoJsonFeature: style not ready, skipping update");
+      return;
+    }
+    
     Feature feature = Feature.fromJson(geojsonFeature);
     FeatureCollection featureCollection = addedFeaturesByLayer.get(sourceName);
     GeoJsonSource geoJsonSource = style.getSourceAs(sourceName);
@@ -409,6 +447,7 @@ final class MapLibreMapController
         }
       }
 
+      // Synchronous updates are enabled via GeoJsonOptions at source creation when dragEnabled is true
       geoJsonSource.setGeoJson(featureCollection);
     }
   }
@@ -659,28 +698,38 @@ final class MapLibreMapController
   }
 
   private Pair<Feature, String> firstFeatureOnLayers(RectF in) {
-    if (style != null) {
-      final List<Layer> layers = style.getLayers();
-      final List<String> layersInOrder = new ArrayList<String>();
-      for (Layer layer : layers) {
-        String id = layer.getId();
-        if (interactiveFeatureLayerIds.contains(id)) layersInOrder.add(id);
-      }
-      Collections.reverse(layersInOrder);
-
-      for (String id : layersInOrder) {
-        List<Feature> features = mapLibreMap.queryRenderedFeatures(in, id);
-        if (!features.isEmpty()) {
-          return new Pair<Feature, String>(features.get(0), id);
-        }
+    if (style == null) return null;
+    if (!style.isFullyLoaded()) {
+        Log.d(TAG, "firstFeatureOnLayers: style not fully loaded yet");
+        return null;
+    }
+    
+    final List<Layer> layers;
+    try {
+      layers = style.getLayers();
+    } catch (IllegalStateException ex) {
+      // Style object is stale (a new style is loading/has loaded). Skip querying.
+      Log.w(TAG, "firstFeatureOnLayers: Style.getLayers() failed: " + ex.getMessage());
+      return null;
+    }
+    final List<String> layersInOrder = new ArrayList<String>();
+    for (Layer layer : layers) {
+      String id = layer.getId();
+      if (interactiveFeatureLayerIds.contains(id)) layersInOrder.add(id);
+    }
+    Collections.reverse(layersInOrder);
+    for (String id : layersInOrder) {
+      List<Feature> features = mapLibreMap.queryRenderedFeatures(in, id);
+      if (!features.isEmpty()) {
+        return new Pair<Feature, String>(features.get(0), id);
       }
     }
+    
     return null;
   }
 
   @Override
   public void onMethodCall(MethodCall call, MethodChannel.Result result) {
-
     switch (call.method) {
       case "map#waitForMap":
         if (mapLibreMap != null) {
@@ -920,6 +969,174 @@ final class MapLibreMapController
       case "map#getTelemetryEnabled":
         {
           result.success(false);
+          break;
+        }
+      case "map#setMaximumFps":
+        {
+          final int fps = call.argument("fps");
+          if (mapView != null) {
+            mapView.setMaximumFps(fps);
+          }
+          result.success(null);
+          break;
+        }
+      case "map#forceOnlineMode":
+        {
+          // Force online mode by setting connectivity to true
+          if (mapView != null) {
+            ConnectivityReceiver.instance(mapView.getContext()).setConnected(true);
+          }
+          result.success(null);
+          break;
+        }
+      case "camera#ease":
+        {
+          final CameraUpdate cameraUpdate = Convert.toCameraUpdate(call.argument("cameraUpdate"), mapLibreMap, density);
+          final Integer duration = call.argument("duration");
+
+          final OnCameraMoveFinishedListener onCameraMoveFinishedListener =
+              new OnCameraMoveFinishedListener() {
+                @Override
+                public void onFinish() {
+                  super.onFinish();
+                  result.success(true);
+                }
+
+                @Override
+                public void onCancel() {
+                  super.onCancel();
+                  result.success(false);
+                }
+              };
+
+          if (cameraUpdate != null && duration != null && duration > 0) {
+            // camera transformation not handled yet
+            mapLibreMap.easeCamera(cameraUpdate, duration, false, onCameraMoveFinishedListener);
+          } else if (cameraUpdate != null) {
+            // camera transformation not handled yet
+            mapLibreMap.easeCamera(cameraUpdate, onCameraMoveFinishedListener);
+          } else {
+            result.success(false);
+          }
+          break;
+        }
+      case "map#queryCameraPosition":
+        {
+          result.success(Convert.toJson(mapLibreMap.getCameraPosition()));
+          break;
+        }
+      case "map#editGeoJsonSource":
+        {
+          boolean ret = false;
+          if (mapLibreMap != null) {
+            Style style = mapLibreMap.getStyle();
+            if (style != null) {
+              try {
+                GeoJsonSource source = style.getSourceAs(call.argument("id"));
+                if (source != null) {
+                  source.setGeoJson((String)call.argument("data"));
+                  ret = true;
+                }
+              } catch (Exception e) {}
+            }
+          }
+          Map<String, Boolean> reply = new HashMap<>();
+          reply.put("result", ret);
+          result.success(reply);
+          break;
+        }
+      case "map#editGeoJsonUrl":
+        {
+          boolean ret = false;
+          if (mapLibreMap != null) {
+            Style style = mapLibreMap.getStyle();
+            if (style != null) {
+              try {
+                GeoJsonSource source = style.getSourceAs(call.argument("id"));
+                if (source != null) {
+                  source.setUrl((String)call.argument("url"));
+                  ret = true;
+                }
+              } catch (Exception e) {}
+            }
+          }
+          Map<String, Boolean> reply = new HashMap<>();
+          reply.put("result", ret);
+          result.success(reply);
+          break;
+        }
+      case "map#setLayerFilter":
+        {
+          boolean ret = false;
+          if (mapLibreMap != null) {
+            Style style = mapLibreMap.getStyle();
+            if (style != null) {
+                try {
+                    Layer layer = style.getLayer(call.argument("id"));
+                    if (layer != null) {
+                        String filter = call.argument("filter");
+                        if (filter != null) {
+                            Expression expression = Expression.raw(filter);
+                            if (expression != null) {
+                              if (layer instanceof LineLayer) {
+                                ((LineLayer)layer).setFilter(expression);
+                                ret = true;
+                              } else if (layer instanceof FillLayer) {
+                                ((FillLayer)layer).setFilter(expression);
+                                ret = true;
+                              } else if (layer instanceof SymbolLayer) {
+                                ((SymbolLayer)layer).setFilter(expression);
+                                ret = true;
+                              }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+          }
+          Map<String, Boolean> reply = new HashMap<>();
+          reply.put("result", ret);
+          result.success(reply);
+          break;
+        }
+      case "map#getStyle":
+        {
+          Map<String, Object> reply = new HashMap<>();
+          boolean ret = false;
+          if (mapLibreMap != null) {
+            Style style = mapLibreMap.getStyle();
+            if (style != null) {
+              try {
+                String json = style.getJson();
+                reply.put("json", json);
+                ret = true;
+              } catch (Exception e) {}
+            }
+          }
+          reply.put("result", ret);
+          result.success(reply);
+          break;
+        }
+      case "map#setCustomHeaders":
+        {
+          if (mapLibreMap != null) {
+            HashMap<String, String> headers = (HashMap<String, String>)call.argument("headers");
+            List<String> filter = (List<String>)call.argument("filter");
+            MapLibreCustomHttpInterceptor.setCustomHeaders(headers, filter, result);
+          } else {
+            result.success(null);
+          }
+          break;
+        }
+      case "map#getCustomHeaders":
+        {
+          if (mapLibreMap != null) {
+            result.success(MapLibreCustomHttpInterceptor.CustomHeaders);
+          } else {
+            result.success(null);
+          }
           break;
         }
       case "map#invalidateAmbientCache":
@@ -1289,9 +1506,21 @@ final class MapLibreMapController
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
           }
+          // Configure bitmap options to prevent density-based scaling
+          BitmapFactory.Options options = new BitmapFactory.Options();
+          options.inScaled = false;       // Disable automatic scaling
+          options.inDensity = 0;          // No source density
+          options.inTargetDensity = 0;    // No target density
+          
+          Bitmap bitmap = BitmapFactory.decodeByteArray(
+              call.argument("bytes"), 
+              0, 
+              call.argument("length"),
+              options);
+          
           style.addImage(
               call.argument("name"),
-              BitmapFactory.decodeByteArray(call.argument("bytes"), 0, call.argument("length")),
+              bitmap,
               call.argument("sdf"));
           result.success(null);
           break;
@@ -1620,6 +1849,27 @@ final class MapLibreMapController
         result.success(reply);
         break;
       }
+      case "style#setStyle":
+      {
+        // Getting style json, url, path etc. from the flutter side
+        String styleString = call.argument("style");
+
+        // Checking if style is null or not
+        if (styleString != null) {
+          // If style is not null setting style
+          setStyleString(styleString);
+          result.success(null);
+        } else {
+
+          // else throwing error
+          result.error(
+                  "STYLE STRING IS NULL",
+                  "The style string is null.",
+                  null
+          );
+        }
+        break;
+      }
       default:
         result.notImplemented();
     }
@@ -1701,9 +1951,9 @@ final class MapLibreMapController
       arguments.put("layerId", featureLayerPair.second);
       arguments.put("id", featureLayerPair.first.id());
       methodChannel.invokeMethod("feature#onTap", arguments);
-    } else {
-      methodChannel.invokeMethod("map#onMapClick", arguments);
     }
+    // Always fire map#onMapClick for all map clicks
+    methodChannel.invokeMethod("map#onMapClick", arguments);
     return true;
   }
 
@@ -1726,10 +1976,22 @@ final class MapLibreMapController
     }
     disposed = true;
     methodChannel.setMethodCallHandler(null);
+    // Properly cleanup MapView lifecycle before destroying
+    if (mapView != null && mapViewStarted) {
+      mapView.onPause();
+      mapView.onStop();
+      mapViewStarted = false;
+    }
     destroyMapViewIfNecessary();
     Lifecycle lifecycle = lifecycleProvider.getLifecycle();
     if (lifecycle != null) {
       lifecycle.removeObserver(this);
+    }
+
+    try {
+      context.unregisterComponentCallbacks(this);
+    } catch (Exception e) {
+      // Ignore if already unregistered
     }
   }
 
@@ -1830,7 +2092,10 @@ final class MapLibreMapController
     if (disposed) {
       return;
     }
-    mapView.onStart();
+    if (!mapViewStarted) {
+      mapView.onStart();
+      mapViewStarted = true;
+    }
   }
 
   @Override
@@ -1841,6 +2106,16 @@ final class MapLibreMapController
     mapView.onResume();
     if (myLocationEnabled) {
       startListeningForLocationUpdates();
+    }
+    // Force a repaint to fix invisible map when returning from background
+    if (mapView != null) {
+      // Use standard Android view invalidation to trigger a repaint
+      mapView.post(new Runnable() {
+        @Override
+        public void run() {
+          mapView.invalidate();
+        }
+      });
     }
   }
 
@@ -1857,7 +2132,10 @@ final class MapLibreMapController
     if (disposed) {
       return;
     }
-    mapView.onStop();
+    if (mapViewStarted) {
+      mapView.onStop();
+      mapViewStarted = false;
+    }
   }
 
   @Override
@@ -1869,25 +2147,39 @@ final class MapLibreMapController
     destroyMapViewIfNecessary();
   }
 
+  @Override
+  public void onConfigurationChanged(@NonNull Configuration newConfig) {
+    // No-op: configuration changes are handled by the activity
+  }
+
+  @Override
+  public void onLowMemory() {
+    if (disposed || mapView == null) {
+      return;
+    }
+    Log.w(TAG, "onLowMemory has been called, telling MapView to reduce memory usage.");
+    // Forward low memory event to MapView
+    mapView.onLowMemory();
+  }
+
+  @Override
+  public void onTrimMemory(int level) {
+    // Lifecycle methods already handle resource management
+  }
+
   // MapLibreMapOptionsSink methods
 
   @Override
   public void setCameraTargetBounds(LatLngBounds bounds) {
     this.bounds = bounds;
+    if (mapLibreMap != null) {
+      mapLibreMap.setLatLngBoundsForCameraTarget(bounds);
+    }
   }
 
   @Override
-  public void setLocationEngineProperties(LocationEngineRequest locationEngineRequest){
-    if(locationComponent != null){
-        if(locationEngineRequest.getPriority() == LocationEngineRequest.PRIORITY_HIGH_ACCURACY){
-            locationComponent.setLocationEngine(new LocationEngineProxy(
-                new MapLibreGPSLocationEngine(context)));
-     } else {
-       locationComponent.setLocationEngine(
-               LocationEngineDefault.INSTANCE.getDefaultLocationEngine(context));
-            }
-      locationComponent.setLocationEngineRequest(locationEngineRequest);
-    }
+  public void setLocationEngineProperties(@NotNull LocationEngineRequest locationEngineRequest) {
+    myLocationEngineFactory.initLocationComponent(context, locationComponent, locationEngineRequest);
   }
 
   @Override
@@ -1960,6 +2252,30 @@ final class MapLibreMapController
     this.myLocationRenderMode = myLocationRenderMode;
     if (mapLibreMap != null && locationComponent != null) {
       updateMyLocationRenderMode();
+    }
+  }
+
+  @Override
+  public void setLogoEnabled(boolean logoEnabled) {
+    mapLibreMap.getUiSettings().setLogoEnabled(logoEnabled);
+  }
+
+  @Override
+  public void setLogoViewGravity(int gravity) {
+    switch (gravity) {
+      case 0:
+        mapLibreMap.getUiSettings().setLogoGravity(Gravity.TOP | Gravity.START);
+        break;
+      case 1:
+        mapLibreMap.getUiSettings().setLogoGravity(Gravity.TOP | Gravity.END);
+        break;
+      default:
+      case 2:
+        mapLibreMap.getUiSettings().setLogoGravity(Gravity.BOTTOM | Gravity.START);
+        break;
+      case 3:
+        mapLibreMap.getUiSettings().setLogoGravity(Gravity.BOTTOM | Gravity.END);
+        break;
     }
   }
 
@@ -2041,6 +2357,18 @@ final class MapLibreMapController
         mapLibreMap.getUiSettings().setAttributionMargins(0, 0, x, y);
         break;
     }
+  }
+
+  @Override
+  public void setForegroundLoadColor(int color) {
+    // foregroundLoadColor is only useful during initial map creation
+    // not for runtime updates, so this is a no-op
+  }
+
+  @Override
+  public void setTranslucentTextureSurface(boolean translucentTextureSurface) {
+    // translucentTextureSurface is only useful during initial map creation
+    // not for runtime updates, so this is a no-op
   }
 
   private void updateMyLocationEnabled() {

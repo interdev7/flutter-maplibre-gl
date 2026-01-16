@@ -1,19 +1,19 @@
-import 'package:js/js_util.dart';
+import 'dart:js_interop';
 import 'package:maplibre_gl_web/src/interop/interop.dart';
-import 'package:maplibre_gl_web/src/utils.dart';
+import 'package:maplibre_gl_web/src/utils.dart' as utils;
 
 class FeatureCollection extends JsObjectWrapper<FeatureCollectionJsImpl> {
-  String get type => jsObject.type;
+  String get type => utils.dartify(jsObject.type) as String;
 
   List<Feature> get features =>
-      jsObject.features.map((f) => Feature.fromJsObject(f)).toList();
+      jsObject.features.toDart.map((f) => Feature.fromJsObject(f)).toList();
 
   factory FeatureCollection({
     required List<Feature> features,
   }) {
     return FeatureCollection.fromJsObject(FeatureCollectionJsImpl(
       type: 'FeatureCollection',
-      features: features.map((f) => f.jsObject).toList(),
+      features: features.map((f) => f.jsObject).toList().toJS,
     ));
   }
 
@@ -22,32 +22,43 @@ class FeatureCollection extends JsObjectWrapper<FeatureCollectionJsImpl> {
 }
 
 class Feature extends JsObjectWrapper<FeatureJsImpl> {
-  dynamic get id => jsObject.id;
+  dynamic get id => utils.dartify(jsObject.id);
 
   set id(dynamic id) {
-    jsObject.id = id;
+    jsObject.id = utils.jsify(id);
   }
 
-  String get type => jsObject.type;
+  String get type => utils.dartify(jsObject.type) as String;
 
   Geometry get geometry => Geometry.fromJsObject(jsObject.geometry);
 
-  Map<String, dynamic> get properties => dartifyMap(jsObject.properties);
+  Map<String, dynamic> get properties => utils.dartifyMap(jsObject.properties);
 
-  String get source => jsObject.source;
+  dynamic getProperty(String key) {
+    final props = jsObject.properties;
+    if (props == null) return null;
+    final value = getJsProperty(props as JSObject, key);
+    return utils.dartify(value);
+  }
+
+  String get source => utils.dartify(jsObject.source) as String;
+
+  String get layerId => utils.dartify(jsObject.layer.id) as String;
 
   factory Feature({
     dynamic id,
     required Geometry geometry,
     Map<String, dynamic>? properties,
     String? source,
+    String? layerId,
   }) =>
       Feature.fromJsObject(FeatureJsImpl(
         type: 'Feature',
-        id: id,
+        id: utils.jsify(id),
         geometry: geometry.jsObject,
-        properties: properties == null ? jsify({}) : jsify(properties),
+        properties: utils.jsify(properties ?? {}),
         source: source,
+        layer: layerId != null ? FeatureLayerJsImpl(id: layerId) : null,
       ));
 
   Feature copyWith({
@@ -58,10 +69,9 @@ class Feature extends JsObjectWrapper<FeatureJsImpl> {
   }) =>
       Feature.fromJsObject(FeatureJsImpl(
         type: 'Feature',
-        id: id ?? this.id,
+        id: utils.jsify(id ?? this.id),
         geometry: geometry != null ? geometry.jsObject : this.geometry.jsObject,
-        properties:
-            properties != null ? jsify(properties) : jsify(this.properties),
+        properties: utils.jsify(properties ?? this.properties),
         source: source ?? this.source,
       ));
 
@@ -70,7 +80,7 @@ class Feature extends JsObjectWrapper<FeatureJsImpl> {
 }
 
 class Geometry extends JsObjectWrapper<GeometryJsImpl> {
-  String get type => jsObject.type;
+  String get type => utils.dartify(jsObject.type) as String;
 
   dynamic get coordinates => jsObject.coordinates;
 
@@ -80,7 +90,7 @@ class Geometry extends JsObjectWrapper<GeometryJsImpl> {
   }) =>
       Geometry.fromJsObject(GeometryJsImpl(
         type: type,
-        coordinates: coordinates,
+        coordinates: utils.jsify(coordinates),
       ));
 
   /// Creates a new Geometry from a [jsObject].

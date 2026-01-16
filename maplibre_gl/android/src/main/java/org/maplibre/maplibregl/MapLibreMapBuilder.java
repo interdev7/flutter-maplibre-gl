@@ -16,7 +16,7 @@ import io.flutter.plugin.common.BinaryMessenger;
 class MapLibreMapBuilder implements MapLibreMapOptionsSink {
   public final String TAG = getClass().getSimpleName();
   private final MapLibreMapOptions options =
-      new MapLibreMapOptions().attributionEnabled(true).logoEnabled(false).textureMode(true);
+      new MapLibreMapOptions().attributionEnabled(true).logoEnabled(false).textureMode(false);
   private boolean trackCameraPosition = false;
   private boolean myLocationEnabled = false;
   private boolean dragEnabled = true;
@@ -121,6 +121,29 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
     this.myLocationRenderMode = myLocationRenderMode;
   }
 
+  @Override
+  public void setLogoEnabled(boolean logoEnabled) {
+    options.logoEnabled(logoEnabled);
+  }
+
+  @Override
+  public void setLogoViewGravity(int gravity) {
+     switch (gravity) {
+      case 0:
+        options.logoGravity(Gravity.TOP | Gravity.START);
+        break;
+      case 1:
+        options.logoGravity(Gravity.TOP | Gravity.END);
+        break;
+      case 2:
+        options.logoGravity(Gravity.BOTTOM | Gravity.START);
+        break;
+      case 3:
+        options.logoGravity(Gravity.BOTTOM | Gravity.END);
+        break;
+    }
+  }
+
   public void setLogoViewMargins(int x, int y) {
     options.logoMargins(
         new int[] {
@@ -216,5 +239,18 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
   @Override
   public void setLocationEngineProperties(@NonNull LocationEngineRequest locationEngineRequest) {
     this.locationEngineRequest = locationEngineRequest;
+  }
+
+  @Override
+  public void setForegroundLoadColor(int loadColor) {
+    options.foregroundLoadColor(loadColor);
+  }
+
+  @Override
+  public void setTranslucentTextureSurface(boolean translucentTextureSurface) {
+    options.translucentTextureSurface(translucentTextureSurface);
+    // TextureMode is required for translucent surfaces, but causes frame sync issues
+    // Only enable it when transparency is actually needed
+    options.textureMode(translucentTextureSurface);
   }
 }

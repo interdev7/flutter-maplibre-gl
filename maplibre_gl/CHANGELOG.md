@@ -1,3 +1,132 @@
+## [0.25.0](https://github.com/maplibre/flutter-maplibre-gl/compare/v0.24.1...v0.25.0) - 2026-01-07
+
+### Added
+* Logo customization options including visibility and position settings (#b4fb174).
+* Explicit annotation manager initialization with clear error handling (#668).
+* iOS: Attribution support for tile and raster sources with HTML link parsing.
+
+### Changed
+* MapLibre Android SDK upgraded from `11.13.5` to `12.3.0` (#690).
+  - Includes synchronous GeoJSON source updates
+  - Support for MLT-format vector tile sources
+  - Better frustum offset support
+  - See [MapLibre Native Android 12.3.0 release notes](https://github.com/maplibre/maplibre-native/releases/tag/android-v12.3.0)
+* OkHttp updated from `4.12.0` to `5.3.2` for Node.js 24 compatibility (#676, #700).
+* Kotlin updated to `2.3.0` (#697, #698).
+* Android Gradle Plugin updated to `8.13.2` (#695, #674).
+* Android Application Plugin updated to `8.13.2` (#696, #689).
+* GitHub Actions: `actions/checkout` updated from v5 to v6 (#672, #693).
+* GitHub Actions: `actions/upload-artifact` updated from v4 to v6 (#688, #694).
+
+### Fixed
+* Min/max zoom preference on iOS (#5230fab).
+* `queryRenderedFeatures` now returns all targets when supplying empty layers list on iOS, aligning behavior with Android (#680).
+* iOS: Enhanced LayerPropertyConverter to handle null values and improve expression parsing (#98660dc).
+* Fixed `lineDasharray` and patterns reset to null in layer properties (#2b550ed).
+* Improved MapLibreMapController disposing to prevent memory leaks.
+* Removed unnecessary disposing of mapController in example app (#f989797).
+* Fixed `setLayerProperties` and pattern images on web and Android (#9ce52a6).
+  - Pattern images now correctly converted to RGBA format on web
+  - Fixed mismatched image size error when loading pattern images
+
+### Refactor
+* Complete refactor of example app with new UI and improved user experience (#ac877a4).
+* Refactored `cameraTargetBounds` implementation on Android and iOS for consistent behavior (#8bcd74a).
+
+**Full Changelog**: [v0.24.1...v0.25.0](https://github.com/maplibre/flutter-maplibre-gl/compare/v0.24.1...v0.25.0)
+
+## [0.24.1](https://github.com/maplibre/flutter-maplibre-gl/compare/v0.24.0...v0.24.1)
+
+### Fixed
+* Annotation tap call callbacks twice. (#652)
+* Annotation APIs: use null-aware access for manager-backed collections (symbols, lines, circles, fills) to avoid null errors before style load. (#657)
+* Add methods enforce explicit manager initialization with clear exceptions when style is not loaded. (#657)
+* Calling add* before style load now fails fast with a clear Exception instead of risking null dereferences or silent failures. (#657)
+
+### Changed
+* Rollback maplibre-gl to `4.7.1` version. (#660)
+
+### Added
+* Added `onCameraMove` callback in the controller and in MapLibreMap class. (#643)
+
+## [0.24.0](https://github.com/maplibre/flutter-maplibre-gl/compare/v0.23.0...v0.24.0)
+> **Note**: This release has breaking changes.\
+> We apologize for the quick change in 0.24.0: this version definitively stabilizes the signatures of feature interaction callbacks.
+
+This release restores the  **feature id** and makes the `Annotation` parameter **nullable** for all feature interaction callbacks (`tap` / `drag` / `hover`).\
+This unblocks interaction with style-layer features not managed by annotation managers (i.e. added via `addLayer*` / style APIs).
+
+### Breaking Changes
+ * **Tap**: `OnFeatureInteractionCallback` → `(Point<double> point, LatLng coordinates, String id, String layerId, Annotation? annotation)`.
+
+* **Drag**: `OnFeatureDragCallback` → `(Point<double> point, LatLng origin, LatLng current, LatLng delta, String id, Annotation? annotation, DragEventType eventType)`.
+
+* **Hover**: `OnFeatureHoverCallback` → `Point<double> point, LatLng coordinates, String id, Annotation? annotation, HoverEventType eventType)`.
+
+* **Update existing listeners**: The short‑lived 0.23.0-only signatures (without `id`) are removed.
+  * For unmanaged style layer features `annotation` is `null` (`unmanaged` means sources/layers you add via style APIs like `addGeoJsonSource` + `addSymbolLayer`).
+  * For managed annotations it is the `Annotation` object.
+
+### Reasoning
+In 0.23.0 the move to annotation objects inadvertently dropped interaction for unmanaged style features. Reintroducing `id` (and making `annotation` nullable) normalizes all three interaction paths without creating phantom annotation wrappers.
+
+### Migration Example
+Before (0.23.0):
+```
+controller.onFeatureTapped.add((p, latLng, annotation, layerId) {
+  print(annotation.id);
+});
+```
+After (>=0.24.0):
+```
+controller.onFeatureTapped.add((p, latLng, id, layerId, annotation) {
+  print('feature id=$id managed=${annotation != null}');
+});
+```
+
+### Refactor / Quality
+* (web) Refactored `onMapClick` (degenerate bbox + interactive layer filter) to surface features inserted via style APIs (unmanaged style-layer features) in `onFeatureTapped` (previously skipped; returned now with `id`, `layerId` and `annotation = null`) (#646).
+* (web) Ensure map container stretches vertically by adding `style.height = '100%'` to the registered div (prevents occasional zero-height layout issues in flexible parents) (#641)
+
+**Full Changelog**: [v0.23.0...v0.24.0](https://github.com/maplibre/flutter-maplibre-gl/compare/v0.23.0...v0.24.0)
+
+## [0.23.0](https://github.com/maplibre/flutter-maplibre-gl/compare/v0.22.0...v0.23.0)
+> **Note**: This release has breaking changes.
+
+This release aligns the plugin with the latest MapLibre Native (Android 11.9.0 / iOS 6.14.0), introduces runtime style switching APIs, hover interaction callbacks, and several annotation interaction improvements. It also contains a small breaking change for feature interaction callbacks.
+
+A big thank you to everyone who contributed to this update!
+
+### Breaking Changes
+* `onFeatureDrag` / `onFeatureTapped` callback signatures now provide an `Annotation annotation` object instead of an `id` parameter. Update your handlers to remove the `id` argument and use `annotation.id` (or other annotation fields) as needed.
+
+### Highlights
+* Runtime style switching via controller (`setStyle…`) without tearing down the map (#444, #603).
+* Hover interaction events (`onFeatureHover`) for richer desktop/web UX (#614).
+* Improved event handling reliability (cancellation & consumption fixes) (#621, #623).
+* Offline region download crash fix in example (#569) and style loaded safety checks (#563).
+* Updated MapLibre Native bringing PMTiles & performance improvements (#552, #582).
+
+### Added / Updated
+* **Feature:** added set style method on controller (#444) & support setting raw style JSON on iOS/web (#603).
+* **Feature:** expose hovering events (`onFeatureHover`) (#614).
+* **Update:** bump Android to 11.9.0 & iOS to 6.14.0 (#582).
+* **Update:** update maplibre-native to the latest versions / PMTiles support (#552).
+* **CI/Tooling:** upgrade Flutter Gradle Plugin & compatibility with Flutter 3.29.0 (#542).
+
+### Fixed
+* iOS code generation: corrected handling of Offset / Translate / expression arrays in generated bindings (#481).
+* Annotation tap consumption now respected (`annotationConsumeTapEvents`).
+* Prevent calling `notifyListeners()` after controller disposal (#621).
+* Web: event listener cancellation & hover handling robustness (#623).
+* Example: offline region download crash (#569).
+* Added style readiness checks before access (#563).
+
+### Refactor / Quality
+* Enable and fix additional lint rules to enforce consistency (#452).
+
+**Full Changelog**: [v0.22.0...v0.23.0](https://github.com/maplibre/flutter-maplibre-gl/compare/v0.22.0...v0.23.0)
+
 ## [0.22.0](https://github.com/maplibre/flutter-maplibre-gl/compare/v0.21.0...v0.22.0)
 
 ### Breaking changes

@@ -35,11 +35,16 @@ class MapLibreMap extends StatefulWidget {
     this.myLocationEnabled = false,
     this.myLocationTrackingMode = MyLocationTrackingMode.none,
     this.myLocationRenderMode = MyLocationRenderMode.normal,
+    this.logoEnabled = false,
+    this.logoViewPosition,
     this.logoViewMargins,
     this.compassViewPosition,
     this.compassViewMargins,
     this.attributionButtonPosition = AttributionButtonPosition.bottomRight,
     this.attributionButtonMargins,
+    this.scaleControlEnabled = false,
+    this.scaleControlPosition = ScaleControlPosition.bottomLeft,
+    this.scaleControlUnit = ScaleControlUnit.metric,
     this.iosLongClickDuration,
     this.webPreserveDrawingBuffer = false,
     this.onMapClick,
@@ -47,6 +52,7 @@ class MapLibreMap extends StatefulWidget {
     this.onMapLongClick,
     this.onCameraTrackingDismissed,
     this.onCameraTrackingChanged,
+    this.onCameraMove,
     this.onCameraIdle,
     this.onMapIdle,
     this.annotationOrder = const [
@@ -61,6 +67,8 @@ class MapLibreMap extends StatefulWidget {
       AnnotationType.line,
       AnnotationType.circle,
     ],
+    this.foregroundLoadColor = Colors.transparent,
+    this.translucentTextureSurface = false,
   })  : assert(
           myLocationRenderMode == MyLocationRenderMode.normal ||
               myLocationEnabled,
@@ -73,9 +81,22 @@ class MapLibreMap extends StatefulWidget {
   /// Only has an impact if [myLocationEnabled] is set to true.
   final LocationEnginePlatforms locationEnginePlatforms;
 
-  /// Defines the layer order of annotations displayed on map
+  /// The color used for the map loading foreground.
+  /// Pass a [Color] and it will be converted to ARGB int for the platform.
   ///
-  /// Any annotation type can only be contained once, so 0 to 4 types
+  /// **Available only on Android. Has no effect on iOS or Web.**
+  final Color? foregroundLoadColor;
+
+  /// Enable translucent texture surface for the map.
+  /// This allows the map to have a transparent background, useful for overlay scenarios.
+  ///
+  /// **Available only on Android. Has no effect on iOS or Web.**
+  final bool translucentTextureSurface;
+
+  /// Defines the layer order of annotations displayed on map.
+  /// Order them from bottom to top. Bottom annotation will be rendered first.
+  ///
+  /// Any annotation type can only be contained once, so 0 to 4 types.
   ///
   /// Note that setting this to be empty gives a big perfomance boost for
   /// android. However if you do so annotations will not work.
@@ -126,7 +147,7 @@ class MapLibreMap extends StatefulWidget {
   /// 1. Passing the URL of the map style. This should be a custom map style served remotely using a URL that start with 'http(s)://'
   /// 2. Passing the style as a local asset. Create a JSON file in the `assets` and add a reference in `pubspec.yml`. Set the style string to the relative path for this asset in order to load it into the map.
   /// 3. Passing the style as a local file. create an JSON file in app directory (e.g. ApplicationDocumentsDirectory). Set the style string to the absolute path of this JSON file.
-  /// 4. Passing the raw JSON of the map style. This is only supported on Android.
+  /// 4. Passing the raw JSON of the map style.
   final String styleString;
 
   /// Preferred bounds for the camera zoom level.
@@ -192,6 +213,13 @@ class MapLibreMap extends StatefulWidget {
   /// If this is set to a value other than [MyLocationRenderMode.normal], [myLocationEnabled] needs to be true.
   final MyLocationRenderMode myLocationRenderMode;
 
+  /// True if the MapLibre logo should be shown on the map.
+  /// Defaults to false.
+  final bool logoEnabled;
+
+  /// Set the position for the Logo
+  final LogoViewPosition? logoViewPosition;
+
   /// Set the layout margins for the Logo
   final Point? logoViewMargins;
 
@@ -211,6 +239,21 @@ class MapLibreMap extends StatefulWidget {
   /// the layout between iOS and Android, since the underlying frameworks have
   /// different defaults.
   final Point? attributionButtonMargins;
+
+  /// True if the scale control should be shown on the map.
+  /// Defaults to false.
+  /// **Web only** - has no effect on other platforms.
+  final bool scaleControlEnabled;
+
+  /// Set the position for the Scale Control.
+  /// Defaults to [ScaleControlPosition.bottomLeft].
+  /// **Web only** - has no effect on other platforms.
+  final ScaleControlPosition scaleControlPosition;
+
+  /// Set the unit for the Scale Control.
+  /// Defaults to [ScaleControlUnit.metric].
+  /// **Web only** - has no effect on other platforms.
+  final ScaleControlUnit scaleControlUnit;
 
   /// Which gestures should be consumed by the map.
   ///
@@ -236,7 +279,10 @@ class MapLibreMap extends StatefulWidget {
   /// Called when the location tracking mode changes
   final OnCameraTrackingChangedCallback? onCameraTrackingChanged;
 
-  // Called when camera movement has ended.
+  /// Called when camera is moving.
+  final OnCameraMoveCallback? onCameraMove;
+
+  /// Called when camera movement has ended.
   final OnCameraIdleCallback? onCameraIdle;
 
   /// Called when map view is entering an idle state, and no more drawing will
@@ -263,6 +309,7 @@ class MapLibreMap extends StatefulWidget {
 class _MapLibreMapState extends State<MapLibreMap> {
   final Completer<MapLibreMapController> _controller =
       Completer<MapLibreMapController>();
+  MapLibreMapController? _mapController;
 
   late _MapLibreMapOptions _maplibreMapOptions;
   final MapLibrePlatform _maplibrePlatform = MapLibrePlatform.createInstance();
@@ -294,12 +341,12 @@ class _MapLibreMapState extends State<MapLibreMap> {
   }
 
   @override
-  Future<void> dispose() async {
-    super.dispose();
+  void dispose() {
     if (_controller.isCompleted) {
-      final controller = await _controller.future;
-      controller.dispose();
+      _mapController?.dispose();
     }
+
+    super.dispose();
   }
 
   @override
@@ -307,7 +354,11 @@ class _MapLibreMapState extends State<MapLibreMap> {
     super.didUpdateWidget(oldWidget);
     final newOptions = _MapLibreMapOptions.fromWidget(widget);
     final updates = _maplibreMapOptions.updatesMap(newOptions);
-    _updateOptions(updates);
+
+    if (updates.isNotEmpty) {
+      // Intentionally not awaited: updating map options asynchronously to avoid blocking widget update.
+      unawaited(_updateOptions(updates));
+    }
     _maplibreMapOptions = newOptions;
   }
 
@@ -316,18 +367,19 @@ class _MapLibreMapState extends State<MapLibreMap> {
       return;
     }
     final controller = await _controller.future;
-    controller._updateMapOptions(updates);
+    await controller._updateMapOptions(updates);
   }
 
   Future<void> onPlatformViewCreated(int id) async {
     final controller = MapLibreMapController(
       maplibrePlatform: _maplibrePlatform,
       initialCameraPosition: widget.initialCameraPosition,
-      onStyleLoadedCallback: () {
+      onStyleLoadedCallback: () async {
         if (_controller.isCompleted) {
           widget.onStyleLoadedCallback?.call();
         } else {
-          _controller.future.then((_) => widget.onStyleLoadedCallback?.call());
+          await _controller.future
+              .then((_) => widget.onStyleLoadedCallback?.call());
         }
       },
       onMapClick: widget.onMapClick,
@@ -335,12 +387,14 @@ class _MapLibreMapState extends State<MapLibreMap> {
       onMapLongClick: widget.onMapLongClick,
       onCameraTrackingDismissed: widget.onCameraTrackingDismissed,
       onCameraTrackingChanged: widget.onCameraTrackingChanged,
+      onCameraMove: widget.onCameraMove,
       onCameraIdle: widget.onCameraIdle,
       onMapIdle: widget.onMapIdle,
       annotationOrder: widget.annotationOrder,
       annotationConsumeTapEvents: widget.annotationConsumeTapEvents,
     );
     await _maplibrePlatform.initPlatform(id);
+    _mapController = controller;
     _controller.complete(controller);
     widget.onMapCreated?.call(controller);
   }
@@ -365,12 +419,19 @@ class _MapLibreMapOptions {
       this.myLocationEnabled,
       this.myLocationTrackingMode,
       this.myLocationRenderMode,
+      this.logoEnabled,
+      this.logoViewPosition,
       this.logoViewMargins,
       this.compassViewPosition,
       this.compassViewMargins,
       this.attributionButtonPosition,
       this.attributionButtonMargins,
-      this.locationEnginePlatforms});
+      this.scaleControlEnabled,
+      this.scaleControlPosition,
+      this.scaleControlUnit,
+      this.locationEnginePlatforms,
+      this.foregroundLoadColor,
+      this.translucentTextureSurface});
 
   _MapLibreMapOptions.fromWidget(MapLibreMap map)
       : this(
@@ -389,11 +450,18 @@ class _MapLibreMapOptions {
           myLocationEnabled: map.myLocationEnabled,
           myLocationTrackingMode: map.myLocationTrackingMode,
           myLocationRenderMode: map.myLocationRenderMode,
+          logoEnabled: map.logoEnabled,
+          logoViewPosition: map.logoViewPosition,
           logoViewMargins: map.logoViewMargins,
           compassViewPosition: map.compassViewPosition,
           compassViewMargins: map.compassViewMargins,
           attributionButtonPosition: map.attributionButtonPosition,
           attributionButtonMargins: map.attributionButtonMargins,
+          scaleControlEnabled: map.scaleControlEnabled,
+          scaleControlPosition: map.scaleControlPosition,
+          scaleControlUnit: map.scaleControlUnit,
+          foregroundLoadColor: map.foregroundLoadColor,
+          translucentTextureSurface: map.translucentTextureSurface,
         );
 
   final bool? compassEnabled;
@@ -422,6 +490,10 @@ class _MapLibreMapOptions {
 
   final MyLocationRenderMode? myLocationRenderMode;
 
+  final bool? logoEnabled;
+
+  final LogoViewPosition? logoViewPosition;
+
   final Point? logoViewMargins;
 
   final CompassViewPosition? compassViewPosition;
@@ -432,7 +504,17 @@ class _MapLibreMapOptions {
 
   final Point? attributionButtonMargins;
 
+  final bool? scaleControlEnabled;
+
+  final ScaleControlPosition? scaleControlPosition;
+
+  final ScaleControlUnit? scaleControlUnit;
+
   final LocationEnginePlatforms? locationEnginePlatforms;
+
+  final Color? foregroundLoadColor;
+
+  final bool? translucentTextureSurface;
 
   final _gestureGroup = {
     'rotateGesturesEnabled',
@@ -474,13 +556,20 @@ class _MapLibreMapOptions {
     addIfNonNull('myLocationEnabled', myLocationEnabled);
     addIfNonNull('myLocationTrackingMode', myLocationTrackingMode?.index);
     addIfNonNull('myLocationRenderMode', myLocationRenderMode?.index);
+    addIfNonNull('logoEnabled', logoEnabled);
+    addIfNonNull('logoViewPosition', logoViewPosition?.index);
     addIfNonNull('logoViewMargins', pointToArray(logoViewMargins));
     addIfNonNull('compassViewPosition', compassViewPosition?.index);
     addIfNonNull('compassViewMargins', pointToArray(compassViewMargins));
     addIfNonNull('attributionButtonPosition', attributionButtonPosition?.index);
     addIfNonNull(
         'attributionButtonMargins', pointToArray(attributionButtonMargins));
+    addIfNonNull('scaleControlEnabled', scaleControlEnabled);
+    addIfNonNull('scaleControlPosition', scaleControlPosition?.index);
+    addIfNonNull('scaleControlUnit', scaleControlUnit?.index);
     addIfNonNull('locationEngineProperties', locationEnginePlatforms?.toList());
+    addIfNonNull('foregroundLoadColor', foregroundLoadColor?.toARGB32());
+    addIfNonNull('translucentTextureSurface', translucentTextureSurface);
     return optionsMap;
   }
 
