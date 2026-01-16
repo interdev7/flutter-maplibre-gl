@@ -8,11 +8,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
-import 'page.dart';
+import '../../page.dart';
 
-class MapSnapshotPage extends ExamplePage {
-  const MapSnapshotPage({super.key})
-      : super(const Icon(Icons.camera_alt), 'Map Snapshot');
+class MapSnapshotPageMobile extends ExamplePage {
+  const MapSnapshotPageMobile({super.key})
+      : super(const Icon(Icons.camera_alt), 'Map Snapshot (Mobile)',
+            category: ExampleCategory.advanced);
 
   @override
   Widget build(BuildContext context) {

@@ -13,11 +13,11 @@ import '../../shared/shared.dart';
 /// - Take a snapshot of the current map view (web only)
 /// - Set a custom size for the map before taking a snapshot
 /// - Display the captured snapshot in a dialog
-class MapSnapshotPage extends ExamplePage {
-  const MapSnapshotPage({super.key})
+class MapSnapshotPageWeb extends ExamplePage {
+  const MapSnapshotPageWeb({super.key})
       : super(
           const Icon(Icons.camera_alt),
-          'Map Snapshot',
+          'Map Snapshot (Web)',
           category: ExampleCategory.advanced,
         );
 
