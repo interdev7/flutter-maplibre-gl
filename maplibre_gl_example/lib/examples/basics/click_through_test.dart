@@ -32,7 +32,9 @@ class _ClickThroughTestBodyState extends State<_ClickThroughTestBody> {
   void _onMapClick(Point<double> point, LatLng coordinates) {
     setState(() {
       _mapClickCount++;
-      _lastEvent = 'Map clicked at ${coordinates.latitude.toStringAsFixed(2)}, ${coordinates.longitude.toStringAsFixed(2)}';
+      final lat = coordinates.latitude.toStringAsFixed(2);
+      final lng = coordinates.longitude.toStringAsFixed(2);
+      _lastEvent = 'Map clicked at $lat, $lng';
     });
   }
 

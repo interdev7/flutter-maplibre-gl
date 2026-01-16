@@ -50,7 +50,7 @@ class MapLibreMapController extends MapLibrePlatform
         ..style.bottom = '0'
         ..style.height = '100%'
         ..style.width = '100%'
-        ..style.pointerEvents = 'none'; // Allow pointer events to pass through to Flutter widgets above
+        ..style.pointerEvents = 'none'; // Allow Flutter widgets above to receive pointer events
       callback(viewId);
       return _mapElement;
     });
@@ -79,7 +79,7 @@ class MapLibreMapController extends MapLibrePlatform
     );
     
     // Enable pointer events on the canvas to allow map interaction
-    // while keeping the container pointer-events: none to prevent click-through
+    // The container has pointer-events: none, so we explicitly enable events on the canvas
     _map.getCanvas().style.pointerEvents = 'auto';
     
     _map.on('style.load', _onStyleLoaded);
