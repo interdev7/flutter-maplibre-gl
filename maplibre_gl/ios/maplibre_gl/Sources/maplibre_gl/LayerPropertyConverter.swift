@@ -182,7 +182,7 @@ class LayerPropertyConverter {
                 case "visibility":
                     if !(propertyValue is NSNull) {
                         if let visibilityValue = propertyValue as? String {
-                        circleLayer.isVisible = visibilityValue == "visible"
+                            circleLayer.isVisible = visibilityValue == "visible"
                         }
                     }
              
@@ -241,7 +241,7 @@ class LayerPropertyConverter {
                 case "visibility":
                     if !(propertyValue is NSNull) {
                         if let visibilityValue = propertyValue as? String {
-                        lineLayer.isVisible = visibilityValue == "visible"
+                            lineLayer.isVisible = visibilityValue == "visible"
                         }
                     }
              
@@ -284,7 +284,7 @@ class LayerPropertyConverter {
                 case "visibility":
                     if !(propertyValue is NSNull) {
                         if let visibilityValue = propertyValue as? String {
-                        fillLayer.isVisible = visibilityValue == "visible"
+                            fillLayer.isVisible = visibilityValue == "visible"
                         }
                     }
              
@@ -370,7 +370,7 @@ class LayerPropertyConverter {
                 case "visibility":
                     if !(propertyValue is NSNull) {
                         if let visibilityValue = propertyValue as? String {
-                        rasterLayer.isVisible = visibilityValue == "visible"
+                            rasterLayer.isVisible = visibilityValue == "visible"
                         }
                     }
              
@@ -409,7 +409,7 @@ class LayerPropertyConverter {
                 case "visibility":
                     if !(propertyValue is NSNull) {
                         if let visibilityValue = propertyValue as? String {
-                        hillshadeLayer.isVisible = visibilityValue == "visible"
+                            hillshadeLayer.isVisible = visibilityValue == "visible"
                         }
                     }
              
@@ -446,7 +446,7 @@ class LayerPropertyConverter {
                 case "visibility":
                     if !(propertyValue is NSNull) {
                         if let visibilityValue = propertyValue as? String {
-                        heatmapLayer.isVisible = visibilityValue == "visible"
+                            heatmapLayer.isVisible = visibilityValue == "visible"
                         }
                     }
              
