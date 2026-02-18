@@ -711,7 +711,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 
@@ -734,7 +733,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 
@@ -744,7 +742,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
     await _channel.invokeMethod('layer#setProperties', <String, dynamic>{
       'layerId': layerId,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 
@@ -767,7 +764,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 
@@ -790,7 +786,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 
@@ -813,7 +808,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'filter': jsonEncode(filter),
       'enableInteraction': enableInteraction,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 
@@ -845,7 +839,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'minzoom': minzoom,
       'maxzoom': maxzoom,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 
@@ -863,7 +856,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'minzoom': minzoom,
       'maxzoom': maxzoom,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 
@@ -881,7 +873,6 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       'minzoom': minzoom,
       'maxzoom': maxzoom,
       'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
     });
   }
 

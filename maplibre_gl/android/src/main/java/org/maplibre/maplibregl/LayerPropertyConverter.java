@@ -11,21 +11,21 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
 import static org.maplibre.maplibregl.Convert.toMap;
 
 class LayerPropertyConverter {
   static PropertyValue[] interpretSymbolLayerProperties(Object o) {
-    final Map<String, String> data = (Map<String, String>) toMap(o);
+    final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final JsonParser parser = new JsonParser();
+    final Gson gson = new Gson();
 
-    for (Map.Entry<String, String> entry : data.entrySet()) {
-      final JsonElement jsonElement = parser.parse(entry.getValue());
+    for (Map.Entry<String, Object> entry : data.entrySet()) {
+      final JsonElement jsonElement = gson.toJsonTree(entry.getValue());
       Expression expression = Expression.Converter.convert(jsonElement);
       switch (entry.getKey()) {
         case "icon-opacity":
@@ -243,7 +243,11 @@ class LayerPropertyConverter {
           properties.add(PropertyFactory.textOptional(expression));
           break;
         case "visibility":
-          properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+          if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+            properties.add(PropertyFactory.visibility(jsonElement.getAsString()));
+          } else {
+            properties.add(PropertyFactory.visibility(expression));
+          }
           break;
         default:
           break;
@@ -254,12 +258,12 @@ class LayerPropertyConverter {
   }
 
   static PropertyValue[] interpretCircleLayerProperties(Object o) {
-    final Map<String, String> data = (Map<String, String>) toMap(o);
+    final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final JsonParser parser = new JsonParser();
+    final Gson gson = new Gson();
 
-    for (Map.Entry<String, String> entry : data.entrySet()) {
-      final JsonElement jsonElement = parser.parse(entry.getValue());
+    for (Map.Entry<String, Object> entry : data.entrySet()) {
+      final JsonElement jsonElement = gson.toJsonTree(entry.getValue());
       Expression expression = Expression.Converter.convert(jsonElement);
       switch (entry.getKey()) {
         case "circle-radius":
@@ -308,7 +312,11 @@ class LayerPropertyConverter {
           properties.add(PropertyFactory.circleSortKey(expression));
           break;
         case "visibility":
-          properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+          if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+            properties.add(PropertyFactory.visibility(jsonElement.getAsString()));
+          } else {
+            properties.add(PropertyFactory.visibility(expression));
+          }
           break;
         default:
           break;
@@ -319,12 +327,12 @@ class LayerPropertyConverter {
   }
 
   static PropertyValue[] interpretLineLayerProperties(Object o) {
-    final Map<String, String> data = (Map<String, String>) toMap(o);
+    final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final JsonParser parser = new JsonParser();
+    final Gson gson = new Gson();
 
-    for (Map.Entry<String, String> entry : data.entrySet()) {
-      final JsonElement jsonElement = parser.parse(entry.getValue());
+    for (Map.Entry<String, Object> entry : data.entrySet()) {
+      final JsonElement jsonElement = gson.toJsonTree(entry.getValue());
       Expression expression = Expression.Converter.convert(jsonElement);
       switch (entry.getKey()) {
         case "line-opacity":
@@ -398,7 +406,11 @@ class LayerPropertyConverter {
           properties.add(PropertyFactory.lineSortKey(expression));
           break;
         case "visibility":
-          properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+          if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+            properties.add(PropertyFactory.visibility(jsonElement.getAsString()));
+          } else {
+            properties.add(PropertyFactory.visibility(expression));
+          }
           break;
         default:
           break;
@@ -409,12 +421,12 @@ class LayerPropertyConverter {
   }
 
   static PropertyValue[] interpretFillLayerProperties(Object o) {
-    final Map<String, String> data = (Map<String, String>) toMap(o);
+    final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final JsonParser parser = new JsonParser();
+    final Gson gson = new Gson();
 
-    for (Map.Entry<String, String> entry : data.entrySet()) {
-      final JsonElement jsonElement = parser.parse(entry.getValue());
+    for (Map.Entry<String, Object> entry : data.entrySet()) {
+      final JsonElement jsonElement = gson.toJsonTree(entry.getValue());
       Expression expression = Expression.Converter.convert(jsonElement);
       switch (entry.getKey()) {
         case "fill-antialias":
@@ -455,7 +467,11 @@ class LayerPropertyConverter {
           properties.add(PropertyFactory.fillSortKey(expression));
           break;
         case "visibility":
-          properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+          if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+            properties.add(PropertyFactory.visibility(jsonElement.getAsString()));
+          } else {
+            properties.add(PropertyFactory.visibility(expression));
+          }
           break;
         default:
           break;
@@ -466,12 +482,12 @@ class LayerPropertyConverter {
   }
 
   static PropertyValue[] interpretFillExtrusionLayerProperties(Object o) {
-    final Map<String, String> data = (Map<String, String>) toMap(o);
+    final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final JsonParser parser = new JsonParser();
+    final Gson gson = new Gson();
 
-    for (Map.Entry<String, String> entry : data.entrySet()) {
-      final JsonElement jsonElement = parser.parse(entry.getValue());
+    for (Map.Entry<String, Object> entry : data.entrySet()) {
+      final JsonElement jsonElement = gson.toJsonTree(entry.getValue());
       Expression expression = Expression.Converter.convert(jsonElement);
       switch (entry.getKey()) {
         case "fill-extrusion-opacity":
@@ -512,7 +528,11 @@ class LayerPropertyConverter {
           properties.add(PropertyFactory.fillExtrusionVerticalGradient(expression));
           break;
         case "visibility":
-          properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+          if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+            properties.add(PropertyFactory.visibility(jsonElement.getAsString()));
+          } else {
+            properties.add(PropertyFactory.visibility(expression));
+          }
           break;
         default:
           break;
@@ -523,12 +543,12 @@ class LayerPropertyConverter {
   }
 
   static PropertyValue[] interpretRasterLayerProperties(Object o) {
-    final Map<String, String> data = (Map<String, String>) toMap(o);
+    final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final JsonParser parser = new JsonParser();
+    final Gson gson = new Gson();
 
-    for (Map.Entry<String, String> entry : data.entrySet()) {
-      final JsonElement jsonElement = parser.parse(entry.getValue());
+    for (Map.Entry<String, Object> entry : data.entrySet()) {
+      final JsonElement jsonElement = gson.toJsonTree(entry.getValue());
       Expression expression = Expression.Converter.convert(jsonElement);
       switch (entry.getKey()) {
         case "raster-opacity":
@@ -556,7 +576,11 @@ class LayerPropertyConverter {
           properties.add(PropertyFactory.rasterFadeDuration(expression));
           break;
         case "visibility":
-          properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+          if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+            properties.add(PropertyFactory.visibility(jsonElement.getAsString()));
+          } else {
+            properties.add(PropertyFactory.visibility(expression));
+          }
           break;
         default:
           break;
@@ -567,12 +591,12 @@ class LayerPropertyConverter {
   }
 
   static PropertyValue[] interpretHillshadeLayerProperties(Object o) {
-    final Map<String, String> data = (Map<String, String>) toMap(o);
+    final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final JsonParser parser = new JsonParser();
+    final Gson gson = new Gson();
 
-    for (Map.Entry<String, String> entry : data.entrySet()) {
-      final JsonElement jsonElement = parser.parse(entry.getValue());
+    for (Map.Entry<String, Object> entry : data.entrySet()) {
+      final JsonElement jsonElement = gson.toJsonTree(entry.getValue());
       Expression expression = Expression.Converter.convert(jsonElement);
       switch (entry.getKey()) {
         case "hillshade-illumination-direction":
@@ -594,7 +618,11 @@ class LayerPropertyConverter {
           properties.add(PropertyFactory.hillshadeAccentColor(expression));
           break;
         case "visibility":
-          properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+          if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+            properties.add(PropertyFactory.visibility(jsonElement.getAsString()));
+          } else {
+            properties.add(PropertyFactory.visibility(expression));
+          }
           break;
         default:
           break;
@@ -605,12 +633,12 @@ class LayerPropertyConverter {
   }
 
   static PropertyValue[] interpretHeatmapLayerProperties(Object o) {
-    final Map<String, String> data = (Map<String, String>) toMap(o);
+    final Map<String, Object> data = (Map<String, Object>) toMap(o);
     final List<PropertyValue> properties = new LinkedList();
-    final JsonParser parser = new JsonParser();
+    final Gson gson = new Gson();
 
-    for (Map.Entry<String, String> entry : data.entrySet()) {
-      final JsonElement jsonElement = parser.parse(entry.getValue());
+    for (Map.Entry<String, Object> entry : data.entrySet()) {
+      final JsonElement jsonElement = gson.toJsonTree(entry.getValue());
       Expression expression = Expression.Converter.convert(jsonElement);
       switch (entry.getKey()) {
         case "heatmap-radius":
@@ -629,7 +657,11 @@ class LayerPropertyConverter {
           properties.add(PropertyFactory.heatmapOpacity(expression));
           break;
         case "visibility":
-          properties.add(PropertyFactory.visibility(entry.getValue().substring(1, entry.getValue().length() - 1)));
+          if (jsonElement.isJsonPrimitive() && jsonElement.getAsJsonPrimitive().isString()) {
+            properties.add(PropertyFactory.visibility(jsonElement.getAsString()));
+          } else {
+            properties.add(PropertyFactory.visibility(expression));
+          }
           break;
         default:
           break;
