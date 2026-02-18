@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:maplibre_gl_platform_interface/src/method_channel_maplibre_gl.dart';
+import 'package:maplibre_gl_platform_interface/maplibre_gl_platform_interface.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
