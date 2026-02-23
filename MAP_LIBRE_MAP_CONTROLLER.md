@@ -345,7 +345,79 @@ void _addIconPoints() async {
       textColor: '#333333',
       textHaloColor: '#FFFFFF',
       textHaloWidth: 1,
+      // symbolSortKey: ['to-number', ['get', 'priority']], // аналог zIndex для слоев GeoJSON
     ),
+  );
+}
+```
+
+---
+
+#### Пример 2.1: Сортировка маркеров при наложении (`symbolSortKey`)
+
+Когда множество маркеров (из слоев GeoJSON) перекрывают друг друга, можно управлять их приоритетом отрисовки:
+
+> **Правило:** Чем больше значение `symbolSortKey`, тем выше отрисуется маркер (аналог `zIndex` из менеджера символов).
+
+```dart
+void _addSortedMarkers() async {
+  // 1. Добавляем данные
+  await controller.addGeoJsonSource('places-source', {
+    'type': 'FeatureCollection',
+    'features': [
+      {
+        'type': 'Feature',
+        'geometry': {'type': 'Point', 'coordinates': [58.3700, 37.8900]},
+        'properties': {
+          'title': 'Обычный магазин',
+          'priority': 0, // Низкий приоритет
+        },
+      },
+      {
+        'type': 'Feature',
+        'geometry': {'type': 'Point', 'coordinates': [58.3704, 37.8904]},
+        'properties': {
+          'title': 'ГЛАВНЫЙ ОФИС',
+          'priority': 99, // Высокий приоритет (сверху при наложении)
+        },
+      },
+    ],
+  });
+
+  // 2. Слой с сортировкой по ключу 'priority'
+  await controller.addSymbolLayer(
+    'places-source',
+    'places-layer',
+    SymbolLayerProperties(
+      iconImage: 'my-icon',
+      textField: ['get', 'title'],
+      // Читаем значение из 'priority' и преобразуем его к числу для сортировки.
+      // Чем выше значение, тем выше маркер будет отрисован.
+      symbolSortKey: ['to-number', ['get', 'priority']],
+    ),
+  );
+}
+```
+
+---
+
+#### Пример 2.2: Отрисовка под другими слоями карты (`belowLayerId`)
+
+Иногда требуется, чтобы весь слой с вашими маркерами рисовался строго под элементами базовой фоновой карты (например, под подписями городов или дорог).
+
+Используйте свойство `belowLayerId` из универсального метода добавления слоев:
+
+```dart
+void _addMarkersBelowLabels() async {
+  await controller.addSymbolLayer(
+    'icons-source',
+    'icons-layer',
+    SymbolLayerProperties(
+      iconImage: 'my-icon',
+      textField: ['get', 'title'],
+    ),
+    // Слой будет отрисован строго ПОД слоем 'waterway-label'
+    belowLayerId: 'waterway-label',
   );
 }
 ```
@@ -891,8 +963,23 @@ final symbol = await controller.addSymbol(
     textOffset: Offset(0, 1.5),
     textColor: '#333333',
     draggable: false,
+    zIndex: 1,                     // приоритет отрисовки (чем больше, тем "выше")
   ),
   {'id': 'marker-1'},  // пользовательские данные
+);
+```
+
+> **Совет по наложению (`zIndex`):**
+> Свойство `zIndex` позволяет управлять порядком отрисовки маркеров внутри менеджера аннотаций. Маркер с бо́льшим `zIndex` всегда отрисуется поверх маркера с ме́ньшим.
+
+```dart
+// Маркер с высоким приоритетом (всегда будет лежать поверх остальных)
+await controller.addSymbol(
+  const SymbolOptions(
+    geometry: LatLng(37.895, 58.375),
+    iconImage: 'selected-marker',
+    zIndex: 10,
+  ),
 );
 ```
 
