@@ -634,6 +634,84 @@ void _addHeatmap() async {
 
 ---
 
+#### Пример 8: Кластеризация маркеров (Clustering)
+
+Для включения кластеризации точек используйте `GeojsonSourceProperties` через универсальный метод `addSource`, так как `addGeoJsonSource` напрямую не принимает параметры кластера в текущей версии пакета.
+
+```dart
+void _addClusteredPoints() async {
+  // 1. Добавляем источник с включённой кластеризацией
+  await controller.addSource(
+    'clustered-source',
+    GeojsonSourceProperties(
+      data: {
+        'type': 'FeatureCollection',
+        'features': [
+          {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [58.3755, 37.8939]}},
+          {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [58.3760, 37.8940]}},
+          {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [58.3765, 37.8941]}},
+          // ... добавьте больше точек для эффекта кластеризации
+        ],
+      },
+      cluster: true,
+      clusterMaxZoom: 14, // Максимальный зум, на котором точки группируются
+      clusterRadius: 50,  // Радиус кластера в пикселях
+    ),
+  );
+
+  // 2. Слой для отрисовки самих кластеров (кругов)
+  // Используем выражения ("expressions") для изменения радиуса и цвета от количества точек
+  await controller.addCircleLayer(
+    'clustered-source',
+    'clusters-layer',
+    CircleLayerProperties(
+      circleRadius: [
+        'step', ['get', 'point_count'],
+        20, 10,   // Базовый радиус 20; если точек >= 10 -> 30; если >= 50 -> 40
+        30, 50,
+        40
+      ],
+      circleColor: [
+        'step', ['get', 'point_count'],
+        '#51bbd6', 10, // Синий для < 10 точек
+        '#f1f075', 50, // Желтый для 10-49 точек
+        '#f28cb1'      // Розовый для >= 50 точек
+      ],
+      circleStrokeWidth: 2,
+      circleStrokeColor: '#ffffff',
+    ),
+    filter: ['has', 'point_count'], // Рисуем этот слой ТОЛЬКО для кластеров
+  );
+
+  // 3. Слой для текста внутри кластера (количество точек)
+  await controller.addSymbolLayer(
+    'clustered-source',
+    'cluster-count-layer',
+    SymbolLayerProperties(
+      textField: ['get', 'point_count_abbreviated'],
+      textSize: 12,
+      textColor: '#000000',
+    ),
+    filter: ['has', 'point_count'],
+  );
+
+  // 4. Слой для отрисовки одиночных (не кластеризованных) точек
+  await controller.addCircleLayer(
+    'clustered-source',
+    'unclustered-point-layer',
+    CircleLayerProperties(
+      circleRadius: 8,
+      circleColor: '#11b4da',
+      circleStrokeWidth: 1,
+      circleStrokeColor: '#fff',
+    ),
+    filter: ['!', ['has', 'point_count']], // Рисуем ТОЛЬКО одиночные точки
+  );
+}
+```
+
+---
+
 ### `setGeoJsonSource`
 
 Обновляет данные **существующего** GeoJSON источника полностью (заменяет весь FeatureCollection).
